@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>北国密令 - 裁判工具</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans SC", sans-serif;
+      background: #f2f2f2;
+      color: #222;
+      padding: 16px;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 4px;
+      font-size: 24px;
+    }
+    .subtitle {
+      text-align: center;
+      margin-bottom: 8px;
+      font-size: 13px;
+      color: #555;
+    }
+    .phase-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 8px;
+    }
+    .phase-label {
+      font-weight: 600;
+    }
+    .directions-bar {
+      text-align: center;
+      margin-bottom: 6px;
+      font-size: 13px;
+      color: #444;
+    }
+    .layout {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+    .left-right {
+      display: flex;
+      gap: 16px;
+      flex: 1;
+      align-items: flex-start;
+    }
+    .player-panel {
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+      padding: 12px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      max-height: 580px;
+    }
+    .player-title {
+      font-weight: 600;
+      margin-bottom: 4px;
+      font-size: 16px;
+    }
+    .player-subtitle {
+      font-size: 11px;
+      color: #777;
+      margin-bottom: 4px;
+    }
+    .board-wrapper {
+      position: relative;
+      display: inline-block;
+      margin: 4px auto;
+    }
+    .board {
+      display: grid;
+      grid-template-columns: repeat(3, 64px);
+      grid-template-rows: repeat(3, 64px);
+      gap: 4px;
+      justify-content: center;
+    }
+    .dir-label {
+      position: absolute;
+      font-size: 11px;
+      color: #555;
+      pointer-events: none;
+      user-select: none;
+    }
+    .dir-N  { top: -14px; left: 50%; transform: translateX(-50%); }
+    .dir-NE { top: -14px; right: 0; }
+    .dir-E  { top: 50%; right: -18px; transform: translateY(-50%); }
+    .dir-SE { bottom: -14px; right: 0; }
+    .dir-S  { bottom: -14px; left: 50%; transform: translateX(-50%); }
+    .dir-SW { bottom: -14px; left: 0; }
+    .dir-W  { top: 50%; left: -18px; transform: translateY(-50%); }
+    .dir-NW { top: -14px; left: 0; }
+    .cell {
+      width: 64px;
+      height: 64px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      background: #fafafa;
+      font-size: 14px;
+      position: relative;
+    }
+    .cell:hover {
+      background: #e9f3ff;
+    }
+    .cell-name{
+      position: absolute;
+      left: 4px;
+      bottom: 2px;
+      font-size: 11px;
+      color: #777;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .piece-layer{
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+    .spyA { background: #e0f7fa; }
+    .hunterA { border-color: #00acc1; }
+    .spyB { background: #fff3e0; }
+    .hunterB { border-color: #fb8c00; }
+    .piece-label {
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .multi-piece {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+    .controls {
+      margin-top: 6px;
+      border-top: 1px dashed #ddd;
+      padding-top: 6px;
+      font-size: 12px;
+    }
+    .controls h3 {
+      font-size: 13px;
+      margin-bottom: 4px;
+    }
+    .card-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-bottom: 4px;
+    }
+
+    /* 基础按钮样式 */
+    button {
+      font-size: 12px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      border: 1px solid #bbb;
+      background: #fff;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+    button:hover {
+      background: #f0f0f0;
+    }
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* 顶部阶段控制按钮：浅蓝 */
+    .btn-phase {
+      background: #e3f2fd;
+      border-color: #64b5f6;
+    }
+    .btn-phase:hover {
+      background: #bbdefb;
+    }
+
+    /* 部署类锦囊（差役成群 / 幽径暗道）：浅绿 */
+    .btn-card-deploy {
+      background: #e8f5e9;
+      border-color: #66bb6a;
+    }
+    .btn-card-deploy:hover {
+      background: #c8e6c9;
+    }
+
+    /* 追捕类锦囊（耳目线报 / 追猎犬）：浅橙 */
+    .btn-card-hunt {
+      background: #fff3e0;
+      border-color: #fb8c00;
+    }
+    .btn-card-hunt:hover {
+      background: #ffe0b2;
+    }
+
+    /* 宵禁令：浅红 */
+    .btn-special {
+      background: #ffebee;
+      border-color: #e57373;
+    }
+    .btn-special:hover {
+      background: #ffcdd2;
+    }
+
+    /* 撤销：灰色 */
+    .btn-undo {
+      background: #eceff1;
+      border-color: #90a4ae;
+    }
+    .btn-undo:hover {
+      background: #cfd8dc;
+    }
+
+    .status-text {
+      font-size: 12px;
+      margin-top: 4px;
+      line-height: 1.4;
+    }
+
+    .status-text .hand-line {
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .small-label {
+      font-size: 11px;
+      color: #777;
+    }
+    .player-log {
+      flex: 1;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 6px;
+      overflow-y: auto;
+      font-size: 12px;
+      background: #fafafa;
+      margin-top: 6px;
+    }
+    .log-entry {
+      margin-bottom: 4px;
+      padding-bottom: 4px;
+      border-bottom: 1px dashed #eee;
+    }
+    .log-entry:last-child {
+      border-bottom: none;
+    }
+    .log-card {
+      color: #1565c0;          /* 锦囊相关：蓝色 */
+    }
+    .log-hidden {
+      color: #ef6c00;          /* 隐藏效果 / 宵禁令：橙色 */
+      font-weight: 600;
+    }
+    .log-system {
+      color: #555;             /* 阶段切换 / 起始牌组等：灰色 */
+      font-style: italic;
+    }
+    .log-win {
+      color: #c62828;          /* 抓捕成功：红色加粗 */
+      font-weight: 700;
+    }
+    .legend {
+      text-align: center;
+      font-size: 11px;
+      margin-top: 2px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <h1>北国密令 · 裁判工具</h1>
+
+  <div class="phase-bar">
+    <span class="phase-label">当前回合：</span>
+    <span id="roundLabel">第 1 回合</span>
+    <span style="margin-left:8px;" class="phase-label">当前阶段：</span>
+    <span id="phaseLabel">部署阶段</span>
+    <button class="btn-phase" onclick="nextPhase()">下一阶段</button>
+  </div>
+
+  <div class="directions-bar">方位约定：上 = 北(N) · 下 = 南(S) · 左 = 西(W) · 右 = 东(E) · 对角为 NE / SE / SW / NW</div>
+
+  <div class="layout">
+    <div class="left-right">
+      <div class="player-panel" id="panelA">
+        <div class="player-title">契丹方（A）</div>
+        <div class="board-wrapper">
+          <div class="dir-label dir-NW">NW</div>
+          <div class="dir-label dir-N">N</div>
+          <div class="dir-label dir-NE">NE</div>
+          <div class="dir-label dir-E">E</div>
+          <div class="dir-label dir-SE">SE</div>
+          <div class="dir-label dir-S">S</div>
+          <div class="dir-label dir-SW">SW</div>
+          <div class="dir-label dir-W">W</div>
+          <div class="board" id="boardA"></div>
+        </div>
+        <div class="controls">
+          <h3>锦囊 &amp; 隐藏效果</h3>
+          <div class="card-list">
+            <button class="btn-card-deploy" onclick="useCard('A','差役成群')">差役成群（部署）</button>
+            <button class="btn-card-deploy" onclick="useCard('A','幽径暗道')">幽径暗道（部署）</button>
+            <button class="btn-card-hunt" onclick="useCard('A','耳目线报')">耳目线报（追捕）</button>
+            <button class="btn-card-hunt" onclick="useCard('A','追猎犬')">追猎犬（追捕）</button>
+          </div>
+          <div class="card-list">
+            <button class="btn-special" onclick="triggerCurfew('A')">手动触发【宵禁令】</button>
+            <button class="btn-undo" onclick="undoLast('A')">撤销上一步</button>
+          </div>
+          <div class="status-text" id="statusA"></div>
+        </div>
+        <div class="player-log" id="logA"></div>
+      </div>
+
+      <div class="player-panel" id="panelB">
+        <div class="player-title">大宋方（B）</div>
+        <div class="board-wrapper">
+          <div class="dir-label dir-NW">NW</div>
+          <div class="dir-label dir-N">N</div>
+          <div class="dir-label dir-NE">NE</div>
+          <div class="dir-label dir-E">E</div>
+          <div class="dir-label dir-SE">SE</div>
+          <div class="dir-label dir-S">S</div>
+          <div class="dir-label dir-SW">SW</div>
+          <div class="dir-label dir-W">W</div>
+          <div class="board" id="boardB"></div>
+        </div>
+        <div class="controls">
+          <h3>锦囊 &amp; 隐藏效果</h3>
+          <div class="card-list">
+            <button class="btn-card-deploy" onclick="useCard('B','差役成群')">差役成群（部署）</button>
+            <button class="btn-card-deploy" onclick="useCard('B','幽径暗道')">幽径暗道（部署）</button>
+            <button class="btn-card-hunt" onclick="useCard('B','耳目线报')">耳目线报（追捕）</button>
+            <button class="btn-card-hunt" onclick="useCard('B','追猎犬')">追猎犬（追捕）</button>
+          </div>
+          <div class="card-list">
+            <button class="btn-special" onclick="triggerCurfew('B')">手动触发【宵禁令】</button>
+            <button class="btn-undo" onclick="undoLast('B')">撤销上一步</button>
+          </div>
+          <div class="status-text" id="statusB"></div>
+        </div>
+        <div class="player-log" id="logB"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const CELL_NAMES = [
+    ['池塘', '红树', '马车'],
+    ['药店', '塔楼', '浴室'],
+    ['小桥', '水井', '米奇不妙屋']
+  ];
+
+  function cellName(r, c) {
+    return CELL_NAMES[r][c];
+  }
+
+function cellName(r, c) {
+  return CELL_NAMES[r][c];
+}
+  const game = {
+    phase: 'deploy',
+    round: 1,
+    over: false,
+    cardsUsedThisPhase: { A: false, B: false },
+    movesThisPhase: { A: 0, B: 0 }
+  };
+
+  const undoStacks = { A: [], B: [] };
+
+  function createRandomCards() {
+    const names = ['差役成群','幽径暗道','耳目线报','追猎犬'];
+    const cards = { '差役成群': 0, '幽径暗道': 0, '耳目线报': 0, '追猎犬': 0 };
+    for (let i = 0; i < 4; i++) {
+      const idx = Math.floor(Math.random() * names.length);
+      const key = names[idx];
+      cards[key] += 1;
+    }
+    return cards;
+  }
+
+  function createPlayer(name) {
+    return {
+      name,
+      spyPos: null,
+      spyPrevPos: null,
+      hunterPos: null,
+      cards: createRandomCards(),
+      patrolActive: false,
+      patrolStepsLeft: 0,
+      youjingPending: false,
+      lastYoujingTeleport: null,
+      youjingDiag1: false,
+      youjingDiag2: false,
+      undergroundNetwork: false,
+      frozenRounds: 0,
+      lastDogDirections: [],
+      hunterIntuition: false,
+      almsNetwork: false
+    };
+  }
+
+  const playerA = createPlayer("契丹");
+  const playerB = createPlayer("大宋");
+
+  function opponent(k){ return k === 'A' ? 'B' : 'A'; }
+  function getPlayer(k){ return k === 'A' ? playerA : playerB; }
+
+  function getLogDiv(k){
+    return document.getElementById(k === 'A' ? 'logA' : 'logB');
+  }
+
+  function pushUndo(k) {
+    const p = getPlayer(k);
+    const logDiv = getLogDiv(k);
+    const snapshot = {
+      player: JSON.parse(JSON.stringify(p)),
+      cardsUsed: game.cardsUsedThisPhase[k],
+      movesThisPhase: game.movesThisPhase[k],
+      logLength: logDiv ? logDiv.children.length : 0
+    };
+    undoStacks[k].push(snapshot);
+  }
+
+  function undoLast(k) {
+    if (game.over) {
+      alert('游戏已结束，无法撤销。');
+      return;
+    }
+    const stack = undoStacks[k];
+    if (!stack.length) {
+      alert('该方暂时没有可撤销的步骤。');
+      return;
+    }
+    const snapshot = stack.pop();
+    const target = getPlayer(k);
+    Object.assign(target, snapshot.player);
+    game.cardsUsedThisPhase[k] = snapshot.cardsUsed;
+    game.movesThisPhase[k] = snapshot.movesThisPhase;
+
+    const logDiv = getLogDiv(k);
+    if (logDiv) {
+      while (logDiv.children.length > snapshot.logLength) {
+        logDiv.removeChild(logDiv.lastChild);
+      }
+    }
+
+    renderBoards();
+    renderStatus();
+  }
+
+  function initBoard() {
+    ['A','B'].forEach(k => {
+      const boardDiv = document.getElementById('board' + k);
+      boardDiv.innerHTML = '';
+      for (let r=0;r<3;r++) {
+        for (let c=0;c<3;c++) {
+          const cell = document.createElement('div');
+          cell.className = 'cell';
+          cell.id = `cell-${k}-${r}-${c}`;
+          cell.innerHTML = `
+            <div class="small-label cell-name">${cellName(r, c)}</div>
+            <div class="piece-layer"></div>
+          `;
+
+          cell.dataset.player = k;
+          cell.dataset.row = r;
+          cell.dataset.col = c;
+          cell.addEventListener('click', onCellClick);
+          boardDiv.appendChild(cell);
+        }
+      }
+    });
+    renderBoards();
+    renderStatus();
+
+    logFor('A', `R${game.round} · 起始牌组：${formatCardSummary(playerA.cards)}`);
+    logFor('B', `R${game.round} · 起始牌组：${formatCardSummary(playerB.cards)}`);
+  }
+
+  function formatCardSummary(cards) {
+    return Object.entries(cards)
+      .filter(([n, c]) => c > 0)
+      .map(([n, c]) => `${n}×${c}`)
+      .join('，') || '无';
+  }
+
+  function renderBoards() {
+    ['A','B'].forEach(k => {
+      for (let r=0;r<3;r++) {
+        for (let c=0;c<3;c++) {
+          const cell = document.getElementById(`cell-${k}-${r}-${c}`);
+          cell.className = 'cell';
+
+          if (!cell.querySelector('.cell-name')) {
+            const r = parseInt(cell.dataset.row, 10);
+            const c = parseInt(cell.dataset.col, 10);
+            cell.innerHTML = `
+              <div class="small-label cell-name">${cellName(r, c)}</div>
+              <div class="piece-layer"></div>
+            `;
+          } else {
+            const layer = cell.querySelector('.piece-layer');
+            if (layer) layer.innerHTML = '';
+          }
+        }
+      }
+    });
+    placePieces('A', playerA);
+    placePieces('B', playerB);
+  }
+
+  function placePieces(k, p) {
+    if (p.spyPos) {
+      const cell = document.getElementById(`cell-${k}-${p.spyPos.r}-${p.spyPos.c}`);
+      addPiece(cell, k==='A'?'spyA':'spyB','间');
+    }
+    if (p.hunterPos) {
+      const cell = document.getElementById(`cell-${k}-${p.hunterPos.r}-${p.hunterPos.c}`);
+      addPiece(cell, k==='A'?'hunterA':'hunterB','捕');
+    }
+  }
+
+  function addPiece(cell, cls, label) {
+    const layer = cell.querySelector('.piece-layer');
+    if (!layer) return;
+
+    const existing = layer.textContent.trim();
+
+    layer.innerHTML = '';
+    if (!existing) {
+      const span = document.createElement('div');
+      span.className = 'piece-label';
+      span.textContent = label;
+      layer.appendChild(span);
+    } else {
+      const wrap = document.createElement('div');
+      wrap.className = 'multi-piece';
+
+      const s1 = document.createElement('div');
+      s1.className = 'piece-label';
+      s1.textContent = existing;
+
+      const s2 = document.createElement('div');
+      s2.className = 'piece-label';
+      s2.textContent = label;
+
+      wrap.appendChild(s1);
+      wrap.appendChild(s2);
+      layer.appendChild(wrap);
+    }
+
+    cell.classList.add(cls);
+  }
+
+
+  function renderStatus() {
+    const statusA=document.getElementById('statusA');
+    const statusB=document.getElementById('statusB');
+
+    function st(p, key){
+      const cards = Object.entries(p.cards)
+        .map(([n,c])=>`${n}×${c}`).join('，');
+      const buffs=[];
+      if(p.patrolActive)buffs.push('差役成群进行中');
+      if(p.youjingPending)buffs.push('幽径暗道待穿越');
+      if(p.undergroundNetwork)buffs.push('地下网络');
+      if(p.hunterIntuition)buffs.push('猎户直觉');
+      if(p.almsNetwork)buffs.push('丐帮情报网络');
+      if(p.frozenRounds>0)buffs.push(`冻结 ${p.frozenRounds} 回合`);
+      buffs.push(`本阶段已行动：${game.movesThisPhase[key]} 次`);
+      return [
+        `<span class="hand-line">手牌：${cards}</span>`,
+        `间谍：${p.spyPos ? cellName(p.spyPos.r, p.spyPos.c) : '未部署'}`,
+        `追捕者：${p.hunterPos ? cellName(p.hunterPos.r, p.hunterPos.c) : '未部署'}`,
+        `状态：${buffs.join('；')}`
+      ].join('<br>');
+    }
+
+    if (statusA) statusA.innerHTML=st(playerA,'A');
+    if (statusB) statusB.innerHTML=st(playerB,'B');
+    document.getElementById('roundLabel').textContent=`第 ${game.round} 回合`;
+    document.getElementById('phaseLabel').textContent=game.phase==='deploy'?'部署阶段':'追捕阶段';
+  }
+
+  function logFor(k, message){
+    const logDiv = getLogDiv(k);
+    if (!logDiv) return;
+    const entry = document.createElement('div');
+
+    let cls = 'log-entry';
+    if (message.includes('· 锦囊：')) {
+      cls += ' log-card';
+    } else if (message.includes('· 隐藏：') || message.includes('【宵禁令】')) {
+      cls += ' log-hidden';
+    } else if (message.includes('抓捕成功')) {
+      cls += ' log-win';
+    } else if (
+      message.includes('起始牌组') ||
+      message.includes('阶段切换') ||
+      message.includes('回合：进入下一回合')
+    ) {
+      cls += ' log-system';
+    }
+    entry.className = cls;
+
+    entry.innerHTML = message;
+    logDiv.appendChild(entry);
+    logDiv.scrollTop = logDiv.scrollHeight;
+  }
+
+  function logGlobal(message){
+    logFor('A', message);
+    logFor('B', message);
+  }
+
+  
+  function nextPhase(){
+    if(game.over)return;
+
+    if(game.phase === 'deploy'){
+      const needA = playerA.frozenRounds <= 0;
+      const needB = playerB.frozenRounds <= 0;
+      if((needA && game.movesThisPhase.A === 0) || (needB && game.movesThisPhase.B === 0)){
+        alert('部署阶段：所有未被【宵禁令】影响的阵营，都必须至少移动一次间谍后才能进入下一阶段。');
+        return;
+      }
+    }else{
+      const needA = playerA.frozenRounds <= 0;
+      const needB = playerB.frozenRounds <= 0;
+      if((needA && game.movesThisPhase.A === 0) || (needB && game.movesThisPhase.B === 0)){
+        alert('追捕阶段：所有未被【宵禁令】影响的阵营，都必须至少部署/移动一次追捕者后才能进入下一阶段。');
+        return;
+      }
+    }
+
+    // 清空撤销栈，保证只能撤回当前阶段内的操作
+    undoStacks.A = [];
+    undoStacks.B = [];
+
+    if(game.phase === 'deploy'){
+      // 部署 -> 追捕（同一回合）
+      game.phase = 'hunt';
+      game.cardsUsedThisPhase.A = false;
+      game.cardsUsedThisPhase.B = false;
+      game.movesThisPhase.A = 0;
+      game.movesThisPhase.B = 0;
+      logGlobal(`R${game.round} · 阶段切换：从部署阶段进入追捕阶段。`);
+      renderStatus();
+    } else {
+      // 追捕 -> 下一回合部署
+      game.round += 1;
+      game.phase = 'deploy';
+      game.cardsUsedThisPhase.A = false;
+      game.cardsUsedThisPhase.B = false;
+      game.movesThisPhase.A = 0;
+      game.movesThisPhase.B = 0;
+      [playerA,playerB].forEach(p=>{
+        p.youjingPending=false;
+        p.lastYoujingTeleport=null;
+        p.hunterPos=null;
+        if(p.frozenRounds>0)p.frozenRounds-=1;
+      });
+      logGlobal(`R${game.round} · 阶段切换：上一回合追捕结束，进入下一回合部署阶段，双方追捕者位置已清空。`);
+      renderBoards();
+      renderStatus();
+    }
+  }
+
+
+  function onCellClick(e){
+    if(game.over){alert('本局已结束，如需重开请刷新页面。');return;}
+    const cell=e.currentTarget;
+    const k=cell.dataset.player;
+    const r=parseInt(cell.dataset.row,10);
+    const c=parseInt(cell.dataset.col,10);
+    const p=getPlayer(k);
+    const opp=getPlayer(opponent(k));
+    const to = { r, c };
+
+    // 是否为【幽径暗道】触发的角↔对角穿越
+    const isYoujingTeleport =
+      game.phase === 'deploy' &&
+      p.youjingPending &&
+      p.spyPos &&
+      isDiagTeleport(p.spyPos, to);
+
+    // 一般情况下，同阶段只允许行动一次；
+    // 但若为幽径暗道的对角穿越，则允许作为额外一次特殊移动。
+    if(game.movesThisPhase[k] >= 1 && !isYoujingTeleport){
+      alert(p.name + ' 在当前阶段已经行动过一次，本阶段不能再次部署/移动。');
+      return;
+    }
+
+    let moved = false;
+    if(game.phase==='deploy'){
+      moved = moveSpy(k,p,opp,r,c);
+    }else{
+      moved = moveHunter(k,p,opp,r,c);
+    }
+
+    if(moved){
+      game.movesThisPhase[k] += 1;
+    }
+
+    renderBoards();
+    renderStatus();
+  }
+
+  function inBounds(r,c){return r>=0&&r<3&&c>=0&&c<3;}
+  function isCorner(pos){return pos&&((pos.r===0||pos.r===2)&&(pos.c===0||pos.c===2));}
+  function eq(a,b){return a&&b&&a.r===b.r&&a.c===b.c;}
+
+  function moveSpy(k,p,opp,r,c){
+    if(p.frozenRounds>0){alert(p.name+' 被【宵禁令】影响，本回合无法移动间谍。');return false;}
+    const to={r,c};
+    const from=p.spyPos;
+
+    if(!from){
+      pushUndo(k);
+      p.spyPrevPos=null;
+      p.spyPos=to;
+      logFor(k, `R${game.round} · 部署：${p.name} 将间谍部署在【${cellName(r,c)}】。`);
+    }else{
+      if(p.youjingPending&&isDiagTeleport(from,to)){
+        pushUndo(k);
+        p.spyPrevPos={r:from.r,c:from.c};
+        p.spyPos=to;
+        p.youjingPending=false;
+        p.lastYoujingTeleport={from:{r:from.r,c:from.c},to:{r:to.r,c:to.c},round:game.round};
+        if(isCell(from,0,0)&&isCell(to,2,2)||isCell(from,2,2)&&isCell(to,0,0))p.youjingDiag1=true;
+        if(isCell(from,0,2)&&isCell(to,2,0)||isCell(from,2,0)&&isCell(to,0,2))p.youjingDiag2=true;
+        if(p.youjingDiag1&&p.youjingDiag2&&!p.undergroundNetwork){
+          p.undergroundNetwork=true;
+          logFor(k, `R${game.round} · 隐藏：${p.name} 完成 X 形穿越，触发【地下网络】！`);
+        }
+        logFor(k, `R${game.round} · 幽径暗道：${p.name} 将间谍从【${cellName(from.r, from.c)}】穿越到【${cellName(to.r, to.c)}】。`);
+      }else{
+        const dr=r-from.r,dc=c-from.c;
+        if(Math.abs(dr)+Math.abs(dc)!==1){
+          alert('部署阶段只能十字相邻移动 1 格（除非本回合使用【幽径暗道】并且从角到对角）。');
+          return false;
+        }
+        pushUndo(k);
+        p.spyPrevPos={r:from.r,c:from.c};
+        p.spyPos=to;
+        logFor(k, `R${game.round} · 部署：${p.name} 将间谍移动到【${cellName(r,c)}】。`);
+      }
+    }
+    if(p.patrolActive&&p.patrolStepsLeft>0){
+      p.patrolStepsLeft--;
+      if(eq(p.spyPos,opp.spyPos)){
+        logFor(k, `R${game.round} · 差役成群：${p.name} 在巡逻中撞见敌方间谍所在格！`);
+      }
+      if(p.patrolStepsLeft===0){
+        p.patrolActive=false;
+        logFor(k, `R${game.round} · 差役成群：${p.name} 的巡逻结束。`);
+      }
+    }
+    if(opp.undergroundNetwork&&isCorner(p.spyPos)){
+      const oppKey = opponent(k);
+      logFor(oppKey, `R${game.round} · 地下网络：${getPlayer(oppKey).name} 得知敌方出现在四角之一。`);
+    }
+    return true;
+  }
+
+  function isDiagTeleport(from,to){
+    if(!from||!to)return false;
+    const pairs=[
+      {a:{r:0,c:0},b:{r:2,c:2}},
+      {a:{r:2,c:2},b:{r:0,c:0}},
+      {a:{r:0,c:2},b:{r:2,c:0}},
+      {a:{r:2,c:0},b:{r:0,c:2}}
+    ];
+    return pairs.some(p=>p.a.r===from.r&&p.a.c===from.c&&p.b.r===to.r&&p.b.c===to.c);
+  }
+  function isCell(pos,r,c){return pos&&pos.r===r&&pos.c===c;}
+
+  function moveHunter(k,p,opp,r,c){
+    if(p.frozenRounds>0){alert(p.name+' 被【宵禁令】影响，本回合无法移动追捕者。');return false;}
+    const to={r,c};
+    const from=p.hunterPos;
+    if(!from){
+      pushUndo(k);
+      p.hunterPos=to;
+      logFor(k, `R${game.round} · 追捕：${p.name} 将追捕者移动到【${cellName(r,c)}】。`);
+    }else{
+      const dr=r-from.r,dc=c-from.c;
+      const cheb=Math.max(Math.abs(dr),Math.abs(dc));
+      if(cheb!==1||(dr===0&&dc===0)){
+        alert('追捕阶段只能米字相邻移动 1 格。');
+        return false;
+      }
+      pushUndo(k);
+      p.hunterPos=to;
+      logFor(k, `R${game.round} · 追捕：${p.name} 将追捕者移动到【${cellName(r,c)}】。`);
+    }
+    if(p.hunterIntuition&&opp.spyPrevPos&&eq(p.hunterPos,opp.spyPrevPos)){
+      logFor(k, `R${game.round} · 猎户直觉：${p.name} 感知到敌方刚刚离开这里！`);
+    }
+    if(eq(p.hunterPos,opp.spyPos)){
+      logGlobal(`R${game.round} · 抓捕成功：${p.name} 抓到敌方间谍，游戏结束。`);
+      alert(p.name+' 抓到敌方间谍，本局胜利！');
+      game.over=true;
+    }
+    return true;
+  }
+
+    function useCard(k,card){
+    if(game.over)return;
+    const p=getPlayer(k),opp=getPlayer(opponent(k));
+    if(p.cards[card]<=0){alert('没有【'+card+'】可用了。');return;}
+    if(game.cardsUsedThisPhase[k]){alert(p.name+' 本阶段已用过一张锦囊。');return;}
+
+    const deployCards=['差役成群','幽径暗道'];
+    const huntCards=['耳目线报','追猎犬'];
+    if(game.phase==='deploy'&&deployCards.indexOf(card)===-1){alert('【'+card+'】只能在追捕阶段使用。');return;}
+    if(game.phase==='hunt'&&huntCards.indexOf(card)===-1){alert('【'+card+'】只能在部署阶段使用。');return;}
+
+    if(card==='差役成群'){
+      // 部署类锦囊：一定成功，先入撤销栈，再扣牌
+      pushUndo(k);
+      p.cards[card]--;
+      game.cardsUsedThisPhase[k]=true;
+      chaYi(k,p);
+    }else if(card==='幽径暗道'){
+      // 可能因位置不在角上等失败；成功时在 youJing 内部 pushUndo
+      const ok=youJing(k,p);
+      if(ok){
+        p.cards[card]--;
+        game.cardsUsedThisPhase[k]=true;
+      }
+    }else if(card==='耳目线报'){
+      // 是否真正成功发动由 erMu 返回
+      const used = erMu(k,p,opp);
+      if(used){
+        p.cards[card]--;
+        game.cardsUsedThisPhase[k]=true;
+      }
+    }else if(card==='追猎犬'){
+      // 是否真正成功发动由 zhuiQuan 返回
+      const used = zhuiQuan(k,p,opp);
+      if(used){
+        p.cards[card]--;
+        game.cardsUsedThisPhase[k]=true;
+      }
+    }
+
+    renderStatus();
+  }
+
+  function chaYi(k,p){
+    p.patrolActive=true;
+    p.patrolStepsLeft=3;
+    logFor(k, `R${game.round} · 锦囊：${p.name} 使用【差役成群】，接下来 3 步为巡逻状态。`);
+  }
+
+    function youJing(k,p){
+    if(!p.spyPos){
+      alert(p.name+' 还没有部署间谍，不能发动【幽径暗道】。');
+      return false;
+    }
+    if(!isCorner(p.spyPos)){
+      alert('【幽径暗道】只能在间谍当前位于四个角格时发动。');
+      return false;
+    }
+    // 成功发动幽径暗道：先入撤销栈，再标记待穿越
+    pushUndo(k);
+    p.youjingPending=true;
+    logFor(k, `R${game.round} · 锦囊：${p.name} 在角上发动【幽径暗道】，本回合下一次间谍移动可从当前角穿越到对角角。`);
+    return true;
+  }
+
+
+  function erMu(k,p,opp){
+    // 耳目线报：返回是否真正成功发动（用于决定是否扣牌）
+    if(!p.hunterPos){
+      alert('请先部署追捕者再用【耳目线报】。');
+      return false;
+    }
+
+    // 先确定侦查方向，避免后面又因为方向无效而“白弃牌”
+    const dirStr = prompt('【耳目线报】请输入侦查方向（N,S,E,W,NE,NW,SE,SW）：');
+    if(!dirStr) return false;
+    const dir = dirStr.toUpperCase();
+    const map = {
+      'N':{dr:-1,dc:0},'S':{dr:1,dc:0},'W':{dr:0,dc:-1},'E':{dr:0,dc:1},
+      'NW':{dr:-1,dc:-1},'NE':{dr:-1,dc:1},'SW':{dr:1,dc:-1},'SE':{dr:1,dc:1}
+    };
+    if(!map[dir]){
+      alert('方向输入有误，本次耳目无效。');
+      return false;
+    }
+
+    // 确定会真正发动后，再入撤销栈，后续任何改变都可以通过撤销恢复
+    pushUndo(k);
+
+    // 隐藏效果：拿钱办事 → 丐帮情报网络
+    if(!p.almsNetwork){
+      const want = confirm(p.name+'：是否发动隐藏效果【拿钱办事】？\n确定：弃一张其它卡牌，获得【丐帮情报网络】。');
+      if(want){
+        // 可选弃置的卡牌（排除耳目线报本身）
+        const candidates = Object.entries(p.cards)
+          .filter(([n,c]) => n !== '耳目线报' && c > 0);
+        if(candidates.length === 0){
+          alert('没有其它卡牌，无法发动【拿钱办事】。');
+        }else{
+          let promptText = '选择要弃置的卡牌（输入序号或卡名，例如 1、"追猎" 或 "1追猎"）：\n';
+          candidates.forEach(([name,count],idx)=>{
+            promptText += (idx+1)+'. '+name+'×'+count+'\n';
+          });
+          const discardInput = prompt(promptText);
+          if(discardInput){
+            const raw = discardInput.trim();
+            let targetName = null;
+
+            // 先看是否以数字开头（1/2/3/4）
+            const numMatch = raw.match(/^(\d+)/);
+            if(numMatch){
+              const num = parseInt(numMatch[1],10);
+              if(num >= 1 && num <= candidates.length){
+                targetName = candidates[num-1][0];
+              }
+            }
+
+            // 如果不是合法序号，再尝试用卡名匹配（包含关系）
+            if(!targetName){
+              for(const [name] of candidates){
+                if(raw === name || name.indexOf(raw) !== -1 || raw.indexOf(name) !== -1){
+                  targetName = name;
+                  break;
+                }
+              }
+            }
+
+            if(targetName){
+              p.cards[targetName]--;
+              p.almsNetwork = true;
+              logFor(k, `R${game.round} · 隐藏：${p.name} 弃置【${targetName}】发动【拿钱办事】，获得【丐帮情报网络】。`);
+            }else{
+              alert('弃牌输入无效，本次不发动【拿钱办事】。');
+            }
+          }
+        }
+      }
+    }
+
+    const v = map[dir];
+    const origin = p.hunterPos;
+    const cells = [];
+    if(p.almsNetwork){
+      // 有丐帮情报网络：自身格子 + 前方整条线 + 身后整条线
+      cells.push({r:origin.r,c:origin.c});
+      let rr = origin.r+v.dr, cc = origin.c+v.dc;
+      while(inBounds(rr,cc)){
+        cells.push({r:rr,c:cc});
+        rr += v.dr; cc += v.dc;
+      }
+      rr = origin.r-v.dr; cc = origin.c-v.dc;
+      while(inBounds(rr,cc)){
+        cells.push({r:rr,c:cc});
+        rr -= v.dr; cc -= v.dc;
+      }
+    }else{
+      // 普通耳目：只看前方，不包含自身与身后
+      let rr = origin.r+v.dr, cc = origin.c+v.dc;
+      while(inBounds(rr,cc)){
+        cells.push({r:rr,c:cc});
+        rr += v.dr; cc += v.dc;
+      }
+    }
+
+    const found = cells.some(pos=>eq(pos,opp.spyPos));
+    if(p.almsNetwork){
+      logFor(k, `R${game.round} · 锦囊：${p.name} 使用【耳目线报+丐帮情报网络】侦查方向 ${dir} 整条线，结果：${found?'发现敌方踪迹。':'未见可疑。'}`);
+    }else{
+      logFor(k, `R${game.round} · 锦囊：${p.name} 使用【耳目线报】侦查方向 ${dir} 前方，结果：${found?'前方线路上存在敌方踪迹。':'前方未发现敌人。'}`);
+    }
+    return true;
+  }
+
+
+  function zhuiQuan(k,p,opp){
+    // 追猎犬：返回是否真正成功发动（用于决定是否扣牌）
+    if(!p.hunterPos||!opp.spyPos){
+      alert('需双方都已部署追捕者与间谍。');
+      return false;
+    }
+    // 确定会真正发动，先入撤销栈
+    pushUndo(k);
+
+    const o=p.hunterPos,t=opp.spyPos;
+    function dir(from,to){
+      const dr=to.r-from.r,dc=to.c-from.c;
+      if(dr===0&&dc===0)return '脚下';
+      if(Math.abs(dr)>=Math.abs(dc))return dr>0?'南':'北';
+      return dc>0?'东':'西';
+    }
+    let base=dir(o,t);
+    let msg='';
+    if(opp.lastYoujingTeleport && opp.lastYoujingTeleport.round===game.round){
+      const d1=dir(o,opp.lastYoujingTeleport.from);
+      const d2=dir(o,opp.lastYoujingTeleport.to);
+      msg=`R${game.round} · 锦囊：${p.name} 使用【追猎犬】，但因对手本回合使用【幽径暗道】，猎犬嗅觉混乱，给出两个矛盾方向：${d1} 与 ${d2}。`;
+    }else{
+      msg=`R${game.round} · 锦囊：${p.name} 使用【追猎犬】，得到线索：敌方大致在你的 ${base} 方。`;
+    }
+    logFor(k, msg);
+    p.lastDogDirections.push(base);
+    if(p.lastDogDirections.length>2)p.lastDogDirections.shift();
+    if(p.lastDogDirections.length===2 && p.lastDogDirections[0]===p.lastDogDirections[1]){
+      if(!p.hunterIntuition){
+        p.hunterIntuition=true;
+        logFor(k, `R${game.round} · 隐藏：${p.name} 的追猎犬连续两次指向同一方向，触发【猎户直觉】。`);
+      }
+    }
+    return true;
+  }
+
+  function triggerCurfew(k){
+    if(game.over)return;
+    const p=getPlayer(k);
+    const oppKey=opponent(k);
+    const opp=getPlayer(oppKey);
+    const ok=confirm(p.name+'：确认【差役成群绕城一圈】达成，发动【宵禁令】？\n效果：撕毁敌方全部锦囊并冻结 1 回合。\n（程序不校验路径，由裁判自行判断。）');
+    if(!ok)return;
+    Object.keys(opp.cards).forEach(n=>opp.cards[n]=0);
+    opp.frozenRounds=Math.max(opp.frozenRounds,1);
+    logFor(k, `R${game.round} · 隐藏：${p.name} 触发【宵禁令】，清空敌方锦囊并令其下 1 回合无法移动。`);
+    renderStatus();
+  }
+
+  initBoard();
+</script>
+</body>
+</html>
