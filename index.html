@@ -887,13 +887,15 @@ function cellName(r, c) {
 
 
   function erMu(k,p,opp){
-    // 耳目线报：返回是否真正成功发动（用于决定是否扣牌）
-    if(!p.hunterPos){
-      alert('请先部署追捕者再用【耳目线报】。');
+    if(!p.spyPos){
+      alert('请先部署/移动间谍再用【耳目线报】。');
+      return false;
+    }
+    if(!opp.spyPos){
+      alert('对手尚未部署间谍，【耳目线报】目前无可侦查目标。');
       return false;
     }
 
-    // 先确定侦查方向，避免后面又因为方向无效而“白弃牌”
     const dirStr = prompt('【耳目线报】请输入侦查方向（N,S,E,W,NE,NW,SE,SW）：');
     if(!dirStr) return false;
     const dir = dirStr.toUpperCase();
@@ -906,14 +908,12 @@ function cellName(r, c) {
       return false;
     }
 
-    // 确定会真正发动后，再入撤销栈，后续任何改变都可以通过撤销恢复
     pushUndo(k);
 
     // 隐藏效果：拿钱办事 → 丐帮情报网络
     if(!p.almsNetwork){
       const want = confirm(p.name+'：是否发动隐藏效果【拿钱办事】？\n确定：弃一张其它卡牌，获得【丐帮情报网络】。');
       if(want){
-        // 可选弃置的卡牌（排除耳目线报本身）
         const candidates = Object.entries(p.cards)
           .filter(([n,c]) => n !== '耳目线报' && c > 0);
         if(candidates.length === 0){
@@ -928,7 +928,6 @@ function cellName(r, c) {
             const raw = discardInput.trim();
             let targetName = null;
 
-            // 先看是否以数字开头（1/2/3/4）
             const numMatch = raw.match(/^(\d+)/);
             if(numMatch){
               const num = parseInt(numMatch[1],10);
@@ -937,7 +936,6 @@ function cellName(r, c) {
               }
             }
 
-            // 如果不是合法序号，再尝试用卡名匹配（包含关系）
             if(!targetName){
               for(const [name] of candidates){
                 if(raw === name || name.indexOf(raw) !== -1 || raw.indexOf(name) !== -1){
@@ -960,10 +958,10 @@ function cellName(r, c) {
     }
 
     const v = map[dir];
-    const origin = p.hunterPos;
+    const origin = p.spyPos;
     const cells = [];
+
     if(p.almsNetwork){
-      // 有丐帮情报网络：自身格子 + 前方整条线 + 身后整条线
       cells.push({r:origin.r,c:origin.c});
       let rr = origin.r+v.dr, cc = origin.c+v.dc;
       while(inBounds(rr,cc)){
@@ -976,7 +974,6 @@ function cellName(r, c) {
         rr -= v.dr; cc -= v.dc;
       }
     }else{
-      // 普通耳目：只看前方，不包含自身与身后
       let rr = origin.r+v.dr, cc = origin.c+v.dc;
       while(inBounds(rr,cc)){
         cells.push({r:rr,c:cc});
@@ -986,50 +983,59 @@ function cellName(r, c) {
 
     const found = cells.some(pos=>eq(pos,opp.spyPos));
     if(p.almsNetwork){
-      logFor(k, `R${game.round} · 锦囊：${p.name} 使用【耳目线报+丐帮情报网络】侦查方向 ${dir} 整条线，结果：${found?'发现敌方踪迹。':'未见可疑。'}`);
+      logFor(k, `R${game.round} · 锦囊：${p.name} 使用【耳目线报+丐帮情报网络】（以间谍为原点）侦查方向 ${dir} 整条线，结果：${found?'发现敌方踪迹。':'未见可疑。'}`);
     }else{
-      logFor(k, `R${game.round} · 锦囊：${p.name} 使用【耳目线报】侦查方向 ${dir} 前方，结果：${found?'前方线路上存在敌方踪迹。':'前方未发现敌人。'}`);
+      logFor(k, `R${game.round} · 锦囊：${p.name} 使用【耳目线报】（以间谍为原点）侦查方向 ${dir} 前方，结果：${found?'前方线路上存在敌方踪迹。':'前方未发现敌人。'}`);
     }
     return true;
   }
 
 
+
   function zhuiQuan(k,p,opp){
-    // 追猎犬：返回是否真正成功发动（用于决定是否扣牌）
-    if(!p.hunterPos||!opp.spyPos){
-      alert('需双方都已部署追捕者与间谍。');
+   
+    if(!p.spyPos || !opp.spyPos){
+      alert('需双方都已部署间谍，才能使用【追猎犬】。');
       return false;
     }
-    // 确定会真正发动，先入撤销栈
     pushUndo(k);
 
-    const o=p.hunterPos,t=opp.spyPos;
+    const o = p.spyPos;     
+    const t = opp.spyPos
+
     function dir(from,to){
       const dr=to.r-from.r,dc=to.c-from.c;
       if(dr===0&&dc===0)return '脚下';
       if(Math.abs(dr)>=Math.abs(dc))return dr>0?'南':'北';
       return dc>0?'东':'西';
     }
-    let base=dir(o,t);
-    let msg='';
+
+    let base = dir(o,t);
+    let msg = '';
+
     if(opp.lastYoujingTeleport && opp.lastYoujingTeleport.round===game.round){
-      const d1=dir(o,opp.lastYoujingTeleport.from);
-      const d2=dir(o,opp.lastYoujingTeleport.to);
-      msg=`R${game.round} · 锦囊：${p.name} 使用【追猎犬】，但因对手本回合使用【幽径暗道】，猎犬嗅觉混乱，给出两个矛盾方向：${d1} 与 ${d2}。`;
+      const d1 = dir(o,opp.lastYoujingTeleport.from);
+      const d2 = dir(o,opp.lastYoujingTeleport.to);
+      msg = `R${game.round} · 锦囊：${p.name} 使用【追猎犬】（以间谍为原点），但因对手本回合使用【幽径暗道】，猎犬嗅觉混乱，给出两个矛盾方向：${d1} 与 ${d2}。`;
     }else{
-      msg=`R${game.round} · 锦囊：${p.name} 使用【追猎犬】，得到线索：敌方大致在你的 ${base} 方。`;
+      msg = `R${game.round} · 锦囊：${p.name} 使用【追猎犬】（以间谍为原点），得到线索：敌方大致在你的 ${base} 方。`;
     }
+
     logFor(k, msg);
+
     p.lastDogDirections.push(base);
     if(p.lastDogDirections.length>2)p.lastDogDirections.shift();
+
     if(p.lastDogDirections.length===2 && p.lastDogDirections[0]===p.lastDogDirections[1]){
       if(!p.hunterIntuition){
         p.hunterIntuition=true;
         logFor(k, `R${game.round} · 隐藏：${p.name} 的追猎犬连续两次指向同一方向，触发【猎户直觉】。`);
       }
     }
+
     return true;
   }
+
 
   function triggerCurfew(k){
     if(game.over)return;
